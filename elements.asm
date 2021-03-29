@@ -1,6 +1,7 @@
         %define SYS_EXIT 60
         %define SYS_READ 0
         %define SYS_WRITE 1
+        %define STDIN 0
         %define STDOUT 1
         %define EXIT_CODE_SUCCESS 0
         %define EXIT_CODE_ERROR 1
@@ -8,19 +9,20 @@
         %define BUFFER_SIZE 4001
         %define BUFFER_MAX_IDX 4000
 
-        global exit_success
         global exit_error
         global convert_number
+        global apply_polynomial
+        global readchar
+        global flush_out_buffer
+        global writechar
 
         global out_buffer
         global out_ptr
-        global in_buffer
-        global apply_polynomial
-
-        extern flush_out_buffer
 
         section .bss
         out_ptr resb 4
+        in_ptr resb 4
+        in_buff_size resb 4
         out_buffer resb BUFFER_SIZE
         in_buffer resb BUFFER_SIZE
 
@@ -49,6 +51,44 @@
         mov	eax, %1
         sub	eax, edx
         %endmacro
+
+readchar:
+; rdi - ptr output, esi - require
+; r8 - in_ptr, r9 - ptr (ptr*) output
+        mov r9, rdi
+        mov r10d, esi
+
+        mov r8d, [in_ptr]
+        cmp r8d, BUFFER_SIZE
+        jz _readchar_fill_buffer
+        cmp r8d, dword [in_buff_size]
+        jz _readchar_fill_buffer
+        jmp _readchar_finalize
+
+_readchar_fill_buffer:
+        mov [in_ptr], dword 0
+
+        mov rax, SYS_READ
+        mov rdi, STDIN
+        mov rsi, in_buffer
+        mov rdx, BUFFER_MAX_IDX
+        syscall
+        mov [in_buff_size], eax
+        cmp rax, 0
+        jnz _readchar_finalize
+        cmp r10d, 0
+        jz exit_success
+        jmp exit_error
+
+_readchar_finalize:
+        mov r8d, dword [in_ptr]
+        lea r11, [in_buffer + r8]
+        mov al, byte [r11]
+        mov [r9], al
+        mov r8d, dword [in_ptr]
+        inc r8d
+        mov [in_ptr], r8d
+        ret
 
 convert_number:
 ; Check if the string is empty.
@@ -98,6 +138,24 @@ _return_from_flush:
 _exit_write_error:
         mov r12, EXIT_CODE_ERROR
         jmp _exit
+
+writechar:
+        mov eax, [out_ptr]
+        cmp eax, BUFFER_SIZE
+        je _flush
+_write_char:
+        mov rdx, out_buffer
+        mov rcx, rdi
+        mov [rdx + rax], cl
+        inc eax
+        mov	[out_ptr], eax
+        ret
+_flush:
+        push rdi
+        call flush_out_buffer
+        pop rdi
+        mov eax, [out_ptr]
+        jmp _write_char
 
 apply_polynomial:
 ; rdi - coeffs 64, esi - args 32, edx - codepoint
