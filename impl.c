@@ -1,54 +1,21 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
 #define MOD 0x10FF80
-#define BUFFER_SIZE 4000
+#define BUFFER_SIZE 1000
 
-unsigned char out_buffer[BUFFER_SIZE + 1];
-unsigned char in_buffer[BUFFER_SIZE + 1];
+extern unsigned out_ptr;
+extern unsigned char in_buffer[BUFFER_SIZE + 1];
+extern unsigned char out_buffer[BUFFER_SIZE + 1];
 
-unsigned in_ptr = 0, out_ptr = 0;
+unsigned in_ptr = 0;
 unsigned in_buff_size = 0;
 
-void flush_out_buffer() {
-    if (out_ptr == 0) {
-        return;
-    }
-    int ret = write(1, &out_buffer, out_ptr);
-    if (ret == 0) {
-        exit(1);
-    }
-    out_ptr = 0;
-}
-
-void error() {
-    flush_out_buffer();
-    exit(1);
-}
-
-void exit_success() {
-    flush_out_buffer();
-    exit(0);
-}
-
-unsigned convert_number(unsigned char *s) {
-    if (*s == '\0') {
-        error();
-    }
-
-    unsigned ret = 0;
-
-    while (*s != '\0') {
-        if (*s < '0' || *s > '9') {
-            error();
-        }
-
-        ret = (ret * 10 + (*s - '0')) % MOD;
-        s++;
-    }
-
-    return ret;
-}
+void exit_success(void);
+void exit_error(void);
+unsigned convert_number(unsigned char *);
+void flush_out_buffer(void);
 
 unsigned apply_polynomial(const unsigned *coeffs, unsigned args, unsigned codepoint) {
     codepoint -= 0x80;
@@ -70,8 +37,9 @@ void readchar(unsigned char *c, int require) {
         in_buff_size = read(0, in_buffer, BUFFER_SIZE);
         if (in_buff_size == 0) {
             if (require) {
-                error();
+                exit_error();
             }
+
             exit_success();
         }
     }
@@ -112,14 +80,14 @@ unsigned read_codepoint() {
                     c = ((long)(first & 0x07) << 18) | ((long)(second & 0x3f) << 12) |
                         ((long)(third & 0x3f) << 6) | ((long)(fourth & 0x3f) << 0);
                 } else {
-                    error();
+                    exit_error();
                 }
             }
         }
     }
 
     if (c < minval || c > 0x10FFFF) {
-        error();
+        exit_error();
     }
 
     return (int)c;
@@ -151,6 +119,7 @@ void write_codepoint(unsigned c) {
 
     for (unsigned i = 0; i < len; i++) {
         if (out_ptr == BUFFER_SIZE) {
+            // printf("hiv!\n");
             flush_out_buffer();
         }
         out_buffer[out_ptr] = s[i];
@@ -161,7 +130,7 @@ void write_codepoint(unsigned c) {
 int main(int argc, char *argv[]) {
     unsigned args = argc - 1;
     if (argc < 2) {
-        error();
+        exit_error();
     }
 
     unsigned *coeffs = malloc(sizeof(unsigned) * args);
@@ -169,6 +138,10 @@ int main(int argc, char *argv[]) {
         unsigned a = convert_number((unsigned char *)argv[i]);
         coeffs[args - i] = a;
     }
+
+    // for (int i = 0; i < args; i++) {
+    // printf("%d\n", coeffs[i]);
+    //}
 
     while (1) {
         unsigned codepoint = read_codepoint();
@@ -182,3 +155,24 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
+
+#include <assert.h>
+
+/*
+int main(int argc, char *argv[]) {
+    unsigned args = 1;
+    unsigned coeffs[] = {1};
+
+    while (1) {
+        unsigned codepoint = read_codepoint();
+
+        if (codepoint >= 0x80) {
+            codepoint = apply_polynomial(coeffs, args, codepoint);
+        }
+
+        write_codepoint(codepoint);
+    }
+
+    return 0;
+}
+*/

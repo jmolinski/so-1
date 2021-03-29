@@ -1,0 +1,7 @@
+#! /usr/bin/bash
+
+nasm -f elf64 -o elements.o elements.asm
+
+gcc -c -Wall -Werror -O2 -fno-inline -o impl.o impl.c
+gcc -o joined elements.o impl.o
+
