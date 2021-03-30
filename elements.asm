@@ -6,6 +6,7 @@
         %define EXIT_CODE_SUCCESS 0
         %define EXIT_CODE_ERROR 1
         %define UTF8_MODULO 0x10FF80
+        %define DECIMAL_BASE 10
         %define BUFFER_SIZE 4001
         %define BUFFER_MAX_IDX 4000
 
@@ -16,9 +17,9 @@
         global write_codepoint
 
         section .bss
-        out_ptr resb 4
-        in_ptr resb 4
-        in_buff_size resb 4
+        out_ptr resd 1
+        in_ptr resd 1
+        in_buff_size resd 1
         out_buffer resb BUFFER_SIZE
         in_buffer resb BUFFER_SIZE
 
@@ -51,8 +52,7 @@
 readchar:
 ; rdi - ptr output, esi - require
 ; r8 - in_ptr, r9 - ptr (ptr*) output
-        mov r9, rdi
-        mov r10d, esi
+        mov r10d, edi
 
         mov r8d, [in_ptr]
         cmp r8d, BUFFER_SIZE
@@ -70,9 +70,9 @@ _readchar_fill_buffer:
         mov rdx, BUFFER_MAX_IDX
         syscall
         mov [in_buff_size], eax
-        cmp rax, 0
+        test eax, eax
         jnz _readchar_finalize
-        cmp r10d, 0
+        test r10d, r10d
         jz exit_success
         jmp exit_error
 
@@ -80,8 +80,6 @@ _readchar_finalize:
         mov r8d, dword [in_ptr]
         lea r11, [in_buffer + r8]
         mov al, byte [r11]
-        mov [r9], al
-        mov r8d, dword [in_ptr]
         inc r8d
         mov [in_ptr], r8d
         ret
@@ -94,11 +92,11 @@ convert_number:
         jz exit_error
 
         xor rax, rax
-        mov r8d, 10
+        mov r8d, DECIMAL_BASE
 
 _loop_over_chars:
 ; czy s < 0 lub s > 9?
-        sub cl, 0x30
+        sub cl, '0'
         jl exit_error
         cmp cl, 0x9
         ja exit_error
@@ -116,7 +114,7 @@ _loop_over_chars:
 
 flush_out_buffer:
         mov r8d, [out_ptr]
-        cmp r8, 0
+        test r8, r8
         jz _return_from_flush
 
         mov rax, SYS_WRITE

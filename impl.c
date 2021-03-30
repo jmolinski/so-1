@@ -1,86 +1,63 @@
 #include <stdlib.h>
 
 void exit_error(void);
-void readchar(unsigned char *c, unsigned require);
 unsigned convert_number(unsigned char *);
 unsigned apply_polynomial(const unsigned *coeffs, unsigned args, unsigned codepoint);
 void write_codepoint(unsigned c);
 
+unsigned char readchar(unsigned require);
+
+unsigned read_2byte(unsigned char first) {
+    unsigned char second = readchar(1);
+    return ((unsigned short)(first & 0x1f) << 6) | ((unsigned short)(second & 0x3f));
+}
+
+unsigned read_3byte(unsigned char first) {
+    unsigned char second = readchar(1);
+    unsigned char third = readchar(1);
+    return ((unsigned short)(first & 0x0f) << 12) | ((unsigned short)(second & 0x3f) << 6) |
+           ((unsigned short)(third & 0x3f));
+}
+
+unsigned read_4byte(unsigned char first) {
+    unsigned char second = readchar(1);
+    unsigned char third = readchar(1);
+    unsigned char fourth = readchar(1);
+    unsigned c = ((long)(first & 0x07) << 18) | ((long)(second & 0x3f) << 12) |
+                 ((long)(third & 0x3f) << 6) | ((long)(fourth & 0x3f));
+    if (c > 0x10FFFF) {
+        exit_error();
+    }
+    return c;
+}
+
 unsigned read_codepoint() {
     unsigned c = 0;
-    unsigned char first;
-    readchar(&first, 0);
+    unsigned char first = readchar(0);
 
     int minval = 0;
     if (first < 0x80) {
-        c = first;
-    } else {
-        unsigned char second;
-        readchar(&second, 1);
-
+        return first;
+    } else if ((first & 0xe0) == 0xc0) {
+        c = read_2byte(first);
         minval = 0x80;
-        if ((first & 0xe0) == 0xc0) {
-            c = ((long)(first & 0x1f) << 6) | ((long)(second & 0x3f) << 0);
-        } else {
-            unsigned char third;
-            readchar(&third, 1);
-
-            minval = 0x800;
-            if ((first & 0xf0) == 0xe0) {
-                c = ((long)(first & 0x0f) << 12) | ((long)(second & 0x3f) << 6) |
-                    ((long)(third & 0x3f) << 0);
-            } else {
-                unsigned char fourth;
-                readchar(&fourth, 1);
-
-                minval = 0x10000;
-                if ((first & 0xf8) == 0xf0 && (first <= 0xf4)) {
-                    c = ((long)(first & 0x07) << 18) | ((long)(second & 0x3f) << 12) |
-                        ((long)(third & 0x3f) << 6) | ((long)(fourth & 0x3f) << 0);
-                } else {
-                    exit_error();
-                }
-            }
-        }
+    } else if ((first & 0xf0) == 0xe0) {
+        c = read_3byte(first);
+        minval = 0x800;
+    } else if ((first & 0xf8) == 0xf0) {
+        c = read_4byte(first);
+        minval = 0x10000;
+    } else {
+        exit_error();
     }
 
-    if (c < minval || c > 0x10FFFF) {
+    if (c < minval) {
         exit_error();
     }
 
     return c;
 }
-/*
-void write_codepoint(const unsigned c) {
-    unsigned char s;
-    if (c >= (1L << 16)) {
-        s = 0xf0 | (c >> 18);
-        writechar(s);
-        s = 0x80 | ((c >> 12) & 0x3f);
-        writechar(s);
-        s = 0x80 | ((c >> 6) & 0x3f);
-        writechar(s);
-        s = 0x80 | ((c >> 0) & 0x3f);
-        writechar(s);
-    } else if (c >= (1L << 11)) {
-        s = 0xe0 | (c >> 12);
-        writechar(s);
-        s = 0x80 | ((c >> 6) & 0x3f);
-        writechar(s);
-        s = 0x80 | ((c >> 0) & 0x3f);
-        writechar(s);
-    } else if (c >= (1L << 7)) {
-        s = 0xc0 | (c >> 6);
-        writechar(s);
-        s = 0x80 | ((c >> 0) & 0x3f);
-        writechar(s);
-    } else {
-        s = c;
-        writechar(s);
-    }
-}
-*/
-/*
+
 int main(int argc, char *argv[]) {
     unsigned args = argc - 1;
     if (argc < 2) {
@@ -105,8 +82,8 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
-*/
 
+/*
 int main(int argc, char *argv[]) {
     unsigned args = 3;
     unsigned coeffs[] = {1000, 1000, 1000};
@@ -123,3 +100,4 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
+*/

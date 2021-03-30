@@ -158,6 +158,37 @@ void write_codepoint(unsigned c) {
     }
 }
 
+/*
+void write_codepoint(const unsigned c) {
+    unsigned char s;
+    if (c >= (1L << 16)) {
+        s = 0xf0 | (c >> 18);
+        writechar(s);
+        s = 0x80 | ((c >> 12) & 0x3f);
+        writechar(s);
+        s = 0x80 | ((c >> 6) & 0x3f);
+        writechar(s);
+        s = 0x80 | ((c >> 0) & 0x3f);
+        writechar(s);
+    } else if (c >= (1L << 11)) {
+        s = 0xe0 | (c >> 12);
+        writechar(s);
+        s = 0x80 | ((c >> 6) & 0x3f);
+        writechar(s);
+        s = 0x80 | ((c >> 0) & 0x3f);
+        writechar(s);
+    } else if (c >= (1L << 7)) {
+        s = 0xc0 | (c >> 6);
+        writechar(s);
+        s = 0x80 | ((c >> 0) & 0x3f);
+        writechar(s);
+    } else {
+        s = c;
+        writechar(s);
+    }
+}
+*/
+
 int main(int argc, char *argv[]) {
     unsigned args = argc - 1;
     if (argc < 2) {
