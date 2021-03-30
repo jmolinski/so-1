@@ -13,11 +13,7 @@
         global convert_number
         global apply_polynomial
         global readchar
-        global flush_out_buffer
-        global writechar
-
-        global out_buffer
-        global out_ptr
+        global write_codepoint
 
         section .bss
         out_ptr resb 4
@@ -136,7 +132,7 @@ flush_out_buffer:
 _return_from_flush:
         ret
 _exit_write_error:
-        mov r12, EXIT_CODE_ERROR
+        mov rdi, EXIT_CODE_ERROR
         jmp _exit
 
 writechar:
@@ -168,7 +164,6 @@ _coeffs_loop:
         mul r9
         mov r10d, [rdi]
         add rax, r10
-
         rax_modulo_utf8 r11
 
         lea rdi, [rdi+4]
@@ -180,13 +175,53 @@ _coeffs_loop:
         ret
 
 exit_error:
-        mov r12, EXIT_CODE_ERROR
         call flush_out_buffer
+        mov rdi, EXIT_CODE_ERROR
         jmp _exit
 exit_success:
-        mov r12, EXIT_CODE_SUCCESS
         call flush_out_buffer
+        mov rdi, EXIT_CODE_SUCCESS
 _exit:
         mov rax, SYS_EXIT
-        mov rdi, r12
         syscall
+
+write_codepoint:
+
+	mov r10d, edi
+	cmp	edi, 0xffff
+	ja	.L10
+	cmp	edi, 0x7ff
+	ja	.L11
+	cmp	edi, 0x7f
+	jbe	.L7
+	shr	edi, 6
+	or	edi, 0xffffffc0
+	movzx	edi, dil
+.L8:  ; write 2 bytes
+	call	writechar
+	mov edi, r10d
+	and	edi, 0x3f  ; last 6 bits mask
+	or	dil, 0x80  ; first bit mask
+.L7:
+	jmp	writechar  ; write last char / 1 byte
+.L11:
+	shr	edi, 12
+	or	edi, 0xffffffe0
+	movzx	edi, dil
+.L6:  ; write 3 bytes (without calculating)
+	call	writechar
+	mov edi, r10d
+	shr	edi, 6
+	and	edi, 0x3f
+	or	dil, 0x80
+	jmp	.L8  ; write 2 remaining bytes
+.L10:  ; write 4 bytes
+	shr	edi, 18
+	or	edi, 0xfffffff0
+	movzx	edi, dil
+	call	writechar
+	mov edi, r10d
+	shr	edi, 12
+	and	edi, 0x3f
+	or	dil, 0x80
+	jmp	.L6

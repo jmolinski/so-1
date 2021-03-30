@@ -4,7 +4,7 @@ void exit_error(void);
 void readchar(unsigned char *c, unsigned require);
 unsigned convert_number(unsigned char *);
 unsigned apply_polynomial(const unsigned *coeffs, unsigned args, unsigned codepoint);
-void writechar(unsigned char c);
+void write_codepoint(unsigned c);
 
 unsigned read_codepoint() {
     unsigned c = 0;
@@ -50,7 +50,7 @@ unsigned read_codepoint() {
 
     return c;
 }
-
+/*
 void write_codepoint(const unsigned c) {
     unsigned char s;
     if (c >= (1L << 16)) {
@@ -79,7 +79,8 @@ void write_codepoint(const unsigned c) {
         writechar(s);
     }
 }
-
+*/
+/*
 int main(int argc, char *argv[]) {
     unsigned args = argc - 1;
     if (argc < 2) {
@@ -104,8 +105,8 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
+*/
 
-/*
 int main(int argc, char *argv[]) {
     unsigned args = 3;
     unsigned coeffs[] = {1000, 1000, 1000};
@@ -122,5 +123,3 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
-
-*/
