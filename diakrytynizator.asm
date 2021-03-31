@@ -1,3 +1,5 @@
+; autor Jakub Molinski 491502
+
         SYS_EXIT equ 60
         SYS_READ equ 0
         SYS_WRITE equ 1
@@ -49,6 +51,7 @@
 ; Performs fast modulo operation on rax register.
 ; Takes a register name as argument that can be used as temp store.
 ; Clobbers register rdx.
+; Generated with gcc.
         %macro rax_modulo_utf8 1
         mov %1, rax
         mov rdx, 0x787c03a5c11c4499
@@ -63,6 +66,7 @@
 ; Performs fast modulo operation on eax register.
 ; Takes a register name as argument that can be used as temp store.
 ; Clobbers register rdx.
+; Generated with gcc.
         %macro eax_modulo_utf8 1
         mov %1, eax
         imul rax, rax, 0x3c3e01d3
