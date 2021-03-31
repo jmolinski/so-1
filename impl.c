@@ -1,41 +1,17 @@
-#include <stdlib.h>
-
 void exit_error(void);
 unsigned convert_number(unsigned char *);
-unsigned apply_polynomial(const unsigned *coeffs, unsigned args, unsigned codepoint);
-void write_codepoint(unsigned c);
 
-unsigned char readchar(unsigned require);
-
-unsigned read_2byte(unsigned char first) {
-    unsigned char second = readchar(1);
-    return ((unsigned short)(first & 0x1f) << 6) | ((unsigned short)(second & 0x3f));
-}
-
-unsigned read_3byte(unsigned char first) {
-    unsigned char second = readchar(1);
-    unsigned char third = readchar(1);
-    return ((unsigned short)(first & 0x0f) << 12) | ((unsigned short)(second & 0x3f) << 6) |
-           ((unsigned short)(third & 0x3f));
-}
-
-unsigned read_4byte(unsigned char first) {
-    unsigned char second = readchar(1);
-    unsigned char third = readchar(1);
-    unsigned char fourth = readchar(1);
-    unsigned c = ((long)(first & 0x07) << 18) | ((long)(second & 0x3f) << 12) |
-                 ((long)(third & 0x3f) << 6) | ((long)(fourth & 0x3f));
-    if (c > 0x10FFFF) {
-        exit_error();
-    }
-    return c;
-}
-
+unsigned char readchar(unsigned char require);
+unsigned read_2byte(unsigned char first);
+unsigned read_3byte(unsigned char first);
+unsigned read_4byte(unsigned char first);
+void run_main_read_write_loop(unsigned *coeffs, unsigned args);
+/*
 unsigned read_codepoint() {
     unsigned c = 0;
     unsigned char first = readchar(0);
 
-    int minval = 0;
+    unsigned minval = 0;
     if (first < 0x80) {
         return first;
     } else if ((first & 0xe0) == 0xc0) {
@@ -57,46 +33,77 @@ unsigned read_codepoint() {
 
     return c;
 }
+ */
+
+/*
+read_codepoint:
+sub    rsp,0x18
+xor    edi,edi
+call   readchar
+test   al,al
+jns    4014f0 <read_codepoint+0x40>
+mov    edx,eax
+movzx  edi,al
+and    edx,0xffffffe0
+cmp    dl,0xc0
+je     401500 <read_codepoint+0x50>
+mov    edx,eax
+and    edx,0xfffffff0
+cmp    dl,0xe0
+je     401530 <read_codepoint+0x80>
+and    eax,0xfffffff8
+cmp    al,0xf0
+je     401520 <read_codepoint+0x70>
+call   exit_error
+xor    eax,eax
+add    rsp,0x18
+ret
+
+movzx  eax,al
+add    rsp,0x18
+ret
+call   read_2byte
+mov    edx,0x80
+cmp    eax,edx
+jae    4014e4 <read_codepoint+0x34>
+mov    DWORD [rsp+0xc],eax
+call   401421 <exit_error>
+mov    eax,DWORD [rsp+0xc]
+add    rsp,0x18
+ret
+call   read_4byte
+mov    edx,0x10000
+jmp    40150a <read_codepoint+0x5a>
+call   read_3byte
+mov    edx,0x800
+jmp    40150a <read_codepoint+0x5a>
+ */
 
 int main(int argc, char *argv[]) {
     unsigned args = argc - 1;
-    if (argc < 2) {
+    if (argc == 0) {
         exit_error();
     }
 
-    unsigned *coeffs = malloc(sizeof(unsigned) * args);
-    for (unsigned i = 1; i < argc; i++) {
+    unsigned coeffs[args - 1];
+
+    unsigned *coeff_ptr = &coeffs[args - 1];
+    for (unsigned i = 1; i <= args; i++) {
         unsigned a = convert_number((unsigned char *)argv[i]);
-        coeffs[args - i] = a;
+        *coeff_ptr = a;
+        coeff_ptr--;
+        // coeffs[args - i] = a;
     }
 
-    while (1) {
-        unsigned codepoint = read_codepoint();
-
-        if (codepoint >= 0x80) {
-            codepoint = apply_polynomial(coeffs, args, codepoint);
-        }
-
-        write_codepoint(codepoint);
-    }
-
-    return 0;
+    run_main_read_write_loop(coeffs, args);
 }
 
 /*
 int main(int argc, char *argv[]) {
     unsigned args = 3;
-    unsigned coeffs[] = {1000, 1000, 1000};
+    unsigned coeffs[] = {1075041, 623420, 1};
 
-    while (1) {
-        unsigned codepoint = read_codepoint();
-
-        if (codepoint >= 0x80) {
-            codepoint = apply_polynomial(coeffs, args, codepoint);
-        }
-
-        write_codepoint(codepoint);
-    }
+    run_main_read_write_loop(coeffs, args);
 
     return 0;
 }
