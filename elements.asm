@@ -14,10 +14,9 @@
         MAX_ASCII_VALUE equ 0x7f
 
         global _start
-        global main
-        global main2
 
         section .bss
+
         out_ptr resd 1
         in_ptr resd 1
         in_buff_size resd 1
@@ -46,10 +45,10 @@
         %macro eax_modulo_utf8 1
         mov %1, eax
         imul rax, rax, 0x3c3e01d3
-        shr	rax, 0x32
+        shr rax, 0x32
         imul edx, eax, UTF8_MODULO
-        mov	eax, %1
-        sub	eax, edx
+        mov eax, %1
+        sub eax, edx
         %endmacro
 
 ; Reads and returns one character from stdin. Used an internal buffer.
@@ -223,7 +222,7 @@ _write_char:
         mov rcx, rdi
         mov [rdx + rax], cl
         inc eax
-        mov	[out_ptr], eax
+        mov [out_ptr], eax
         ret
 _flush:
         push rdi
@@ -238,94 +237,94 @@ _flush:
 ; Returns the codepoint in eax.
 write_codepoint:
         mov r10d, edi
-        cmp	edi, 0xffff
-        ja	.L10
-        cmp	edi, 0x7ff
-        ja	.L11
-        cmp	edi, 0x7f
-        jbe	.L7
-        shr	edi, 6
-        or	edi, 0xffffffc0
-        movzx	edi, dil
+        cmp edi, 0xffff
+        ja .L10
+        cmp edi, 0x7ff
+        ja .L11
+        cmp edi, 0x7f
+        jbe .L7
+        shr edi, 6
+        or edi, 0xffffffc0
+        movzx edi, dil
 .L8:                                   ; write 2 bytes
-        call	writechar
+        call writechar
         mov edi, r10d
-        and	edi, 0x3f                  ; last 6 bits mask
-        or	dil, 0x80                   ; first bit mask
+        and edi, 0x3f                  ; last 6 bits mask
+        or dil, 0x80                   ; first bit mask
 .L7:
-        jmp	writechar                  ; write last char / 1 byte
+        jmp writechar                  ; write last char / 1 byte
 .L11:
-        shr	edi, 12
-        or	edi, 0xffffffe0
-        movzx	edi, dil
+        shr edi, 12
+        or edi, 0xffffffe0
+        movzx edi, dil
 .L6:                                   ; write 3 bytes (without calculating)
-        call	writechar
+        call writechar
         mov edi, r10d
-        shr	edi, 6
-        and	edi, 0x3f
-        or	dil, 0x80
-        jmp	.L8                        ; write 2 remaining bytes
+        shr edi, 6
+        and edi, 0x3f
+        or dil, 0x80
+        jmp .L8                        ; write 2 remaining bytes
 .L10:                                  ; write 4 bytes
-        shr	edi, 18
-        or	edi, 0xfffffff0
-        movzx	edi, dil
-        call	writechar
+        shr edi, 18
+        or edi, 0xfffffff0
+        movzx edi, dil
+        call writechar
         mov edi, r10d
-        shr	edi, 12
-        and	edi, 0x3f
-        or	dil, 0x80
-        jmp	.L6
+        shr edi, 12
+        and edi, 0x3f
+        or dil, 0x80
+        jmp .L6
 
 ; Reads and decodes a unicode utf-8 encoded codepoint.
 ; Takes no arguments.
 ; Clobbers registers rdi, rax, rsi, rdx, r8, r10, r11, r12.
 ; Returns the codepoint in eax.
 read_codepoint:
-        sub	rsp, 24
-        xor	edi, edi
-        call	readchar
-        test	al, al
-        jns	.L10r
-        mov	edx, eax
-        movzx	edi, al
-        and	edx, -32
-        cmp	dl, -64
-        je	.L11r
-        mov	edx, eax
-        and	edx, -16
-        cmp	dl, -32
-        je	.L12r
-        and	eax, -8
-        cmp	al, -16
-        je	.L13r
-        call	exit_error
-        xor	eax, eax
+        sub rsp, 24
+        xor edi, edi
+        call readchar
+        test al, al
+        jns .L10r
+        mov edx, eax
+        movzx edi, al
+        and edx, -32
+        cmp dl, -64
+        je .L11r
+        mov edx, eax
+        and edx, -16
+        cmp dl, -32
+        je .L12r
+        and eax, -8
+        cmp al, -16
+        je .L13r
+        call exit_error
+        xor eax, eax
 .L1r:
-        add	rsp, 24
+        add rsp, 24
         ret
 .L10r:
-        movzx	eax, al
-        add	rsp, 24
+        movzx eax, al
+        add rsp, 24
         ret
 .L11r:
-        call	read_2byte
-        mov	edx, 128
+        call read_2byte
+        mov edx, 128
 .L5r:
-        cmp	eax, edx
-        jnb	.L1r
-        mov	DWORD [rsp+0xc], eax
-        call	exit_error
-        mov	eax, DWORD [rsp+0xc]
-        add	rsp, 24
+        cmp eax, edx
+        jnb .L1r
+        mov DWORD [rsp+0xc], eax
+        call exit_error
+        mov eax, DWORD [rsp+0xc]
+        add rsp, 24
         ret
 .L13r:
-        call	read_4byte
-        mov	edx, 65536
-        jmp	.L5r
+        call read_4byte
+        mov edx, 65536
+        jmp .L5r
 .L12r:
-        call	read_3byte
-        mov	edx, 2048
-        jmp	.L5r
+        call read_3byte
+        mov edx, 2048
+        jmp .L5r
 
 ; Calculates the polynomial value at point = codepoint, modulo utf8_max.
 ; Arguments rdi - address of polynomial coefficients, esi - number or polynomial coefficients,
@@ -370,35 +369,38 @@ _write_encoded_codepoint:
 
 ; Main function of the program.
 ; Arguments rdi - program arguments count, rsi - address of the first argument
-; Never returns (calls exit syscall).
-main:
-        mov	rbp, rsp
-        sub	rsp, 8
-        mov	r15d, edi
-        sub	r15d, 1
-        je	_exit_too_few_args
-        mov	r13, rsi
-        sub	edi, 2
-        mov	eax, edi
-        lea	rax, [rax*4]
-        sub	rsp, rax
-        mov	r14, rsp
-        mov	ebx, 1
-        mov	r12d, edi
+; Exits through a syscall.
+_start:
+        pop rdi                        ; Pop the number or arguments.
+        mov rsi, rsp
+
+        mov rbp, rsp
+        sub rsp, 8
+        mov r15d, edi
+        sub r15d, 1
+        je _exit_too_few_args
+        mov r13, rsi
+        sub edi, 2
+        mov eax, edi
+        lea rax, [rax*4]
+        sub rsp, rax
+        mov r14, rsp
+        mov ebx, 1
+        mov r12d, edi
 _convert_and_save_args_loop:
-        mov	eax, ebx
-        mov	rdi, [r13+rax*8]
-        call	convert_number
-        mov	[r14+r12*4], eax
+        mov eax, ebx
+        mov rdi, [r13+rax*8]
+        call convert_number
+        mov [r14+r12*4], eax
         dec r12
-        inc	ebx
-        cmp	r15d, ebx
-        jnb	_convert_and_save_args_loop
-        mov	esi, r15d
-        mov	rdi, r14
-        call	run_main_read_write_loop
+        inc ebx
+        cmp r15d, ebx
+        jnb _convert_and_save_args_loop
+        mov esi, r15d
+        mov rdi, r14
+        call run_main_read_write_loop
 _exit_too_few_args:
-        call	exit_error
+        call exit_error
 
 ; exit_error and exit_success are 2 possible ways to end the execution.
 ; They call exit syscall with 0 or nonzero codes.
