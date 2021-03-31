@@ -187,6 +187,9 @@ _loop_over_chars:
         jnz _loop_over_chars
         ret
 
+; Flushes the output buffer.
+; Takes no arguments.
+; Clobbers registers r8, rax, rdi, rsi, rdx.
 flush_out_buffer:
         mov r8d, [out_ptr]
         test r8, r8
@@ -208,6 +211,9 @@ _exit_write_error:
         mov rdi, EXIT_CODE_ERROR
         jmp _exit
 
+; Writes a single byte to stdout. Uses an internal buffer.
+; Arguments - dl - byte to write.
+; Clobbers registers rdi, rax, rdx, rcx, rsi, r8.
 writechar:
         mov eax, [out_ptr]
         cmp eax, BUFFER_SIZE
@@ -226,6 +232,10 @@ _flush:
         mov eax, [out_ptr]
         jmp _write_char
 
+; Encodes and writes an unicode codepoint
+; Arguments edi - codepoint.
+; Clobbers registers rdi, rax, rsi, rdx, r8, r10, r11, r12.
+; Returns the codepoint in eax.
 write_codepoint:
         mov r10d, edi
         cmp	edi, 0xffff
@@ -266,6 +276,10 @@ write_codepoint:
         or	dil, 0x80
         jmp	.L6
 
+; Reads and decodes a unicode utf-8 encoded codepoint.
+; Takes no arguments.
+; Clobbers registers rdi, rax, rsi, rdx, r8, r10, r11, r12.
+; Returns the codepoint in eax.
 read_codepoint:
         sub	rsp, 24
         xor	edi, edi
