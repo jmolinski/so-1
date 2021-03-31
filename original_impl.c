@@ -125,40 +125,6 @@ unsigned read_codepoint() {
     return (int)c;
 }
 
-void write_codepoint(unsigned c) {
-    unsigned char s[4];
-    unsigned len;
-
-    if (c >= (1L << 16)) {
-        s[0] = 0xf0 | (c >> 18);
-        s[1] = 0x80 | ((c >> 12) & 0x3f);
-        s[2] = 0x80 | ((c >> 6) & 0x3f);
-        s[3] = 0x80 | ((c >> 0) & 0x3f);
-        len = 4;
-    } else if (c >= (1L << 11)) {
-        s[0] = 0xe0 | (c >> 12);
-        s[1] = 0x80 | ((c >> 6) & 0x3f);
-        s[2] = 0x80 | ((c >> 0) & 0x3f);
-        len = 3;
-    } else if (c >= (1L << 7)) {
-        s[0] = 0xc0 | (c >> 6);
-        s[1] = 0x80 | ((c >> 0) & 0x3f);
-        len = 2;
-    } else {
-        s[0] = c;
-        len = 1;
-    }
-
-    for (unsigned i = 0; i < len; i++) {
-        if (out_ptr == BUFFER_SIZE) {
-            flush_out_buffer();
-        }
-        out_buffer[out_ptr] = s[i];
-        out_ptr++;
-    }
-}
-
-/*
 void write_codepoint(const unsigned c) {
     unsigned char s;
     if (c >= (1L << 16)) {
@@ -183,11 +149,9 @@ void write_codepoint(const unsigned c) {
         s = 0x80 | ((c >> 0) & 0x3f);
         writechar(s);
     } else {
-        s = c;
-        writechar(s);
+        writechar(c);
     }
 }
-*/
 
 int main(int argc, char *argv[]) {
     unsigned args = argc - 1;

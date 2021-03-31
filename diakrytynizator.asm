@@ -5,13 +5,34 @@
         STDOUT equ 1
         EXIT_CODE_SUCCESS equ 0
         EXIT_CODE_ERROR equ 1
-        UTF8_MODULO equ 0x10FF80
+        UTF8_MODULO equ 0x10ff80
+        UNICODE_MAX_ENCODABLE equ 0x10ffff
         DECIMAL_BASE equ 10
         BUFFER_SIZE equ 4096
         BUFFER_MAX_INDEX equ 4095
         REQUIRED_FLAG equ 1
+
+        MAX_UTF8_POINT_1B equ 0x7f
         SMALLEST_UTF8_POINT_2B equ 0x80
-        MAX_ASCII_VALUE equ 0x7f
+        MAX_UTF8_POINT_2B equ 0x7ff
+        SMALLEST_UTF8_POINT_3B equ 0x800
+        MAX_UTF8_POINT_3B equ 0xffff
+        SMALLEST_UTF8_POINT_4B equ 0x10000
+
+        BITMASK_8BIT_6YOUNGEST_BITS_ON equ 0x3f
+        BITMASK_8BIT_OLDEST_BIT_ON equ 0x80
+        BITMASK_8BIT_OLDEST_2BITS_ON equ 0xc0
+        BITMASK_8BIT_OLDEST_3BITS_ON equ 0xe0
+        BITMASK_8BIT_OLDEST_4BITS_ON equ 0xf0
+        BITMASK_32BIT_OLDEST_26BITS_ON equ 0xffffffc0
+        BITMASK_32BIT_OLDEST_27BITS_ON equ 0xffffffe0
+        BITMASK_32BIT_OLDEST_28BITS_ON equ 0xfffffff0
+        BITMASK_32BIT_OLDEST_29BITS_ON equ 0xfffffff8
+        BITMASK_32BIT_7TO12_BITS_ON equ 0xfc0
+        BITMASK_32BIT_8TO13_BITS_ON equ 0x7c0
+        BITMASK_32BIT_13TO16_BITS_ON equ 0xf000
+        BITMASK_32BIT_19TO21_BITS_ON equ 0x1c0000
+        BITMASK_32BIT_13TO18_BITS_ON equ 0x3f000
 
         global _start
 
@@ -89,10 +110,10 @@ _readchar_finalize:
 read_2byte:
         mov r9d, edi
         mov di, REQUIRED_FLAG
-        shl r9d, 0x6
-        and r9d, 0x7c0
+        shl r9d, 6
+        and r9d, BITMASK_32BIT_8TO13_BITS_ON
         call readchar
-        and eax, 0x3f
+        and eax, BITMASK_8BIT_6YOUNGEST_BITS_ON
         or eax, r9d
         ret
 
@@ -102,19 +123,17 @@ read_2byte:
 read_3byte:
         mov ebx, edi
         mov edi, REQUIRED_FLAG
-        shl ebx, 0xc
-        and ebx, 0xf000
-        sub rsp, 0x8
+        shl ebx, 12
+        and ebx, BITMASK_32BIT_13TO16_BITS_ON
         call readchar
         mov edi, REQUIRED_FLAG
         mov ebp, eax
         call readchar
-        add rsp, 0x8
-        and eax, 0x3f
+        and eax, BITMASK_8BIT_6YOUNGEST_BITS_ON
         or ebx, eax
         mov eax, ebp
-        shl eax, 0x6
-        and eax, 0xfc0
+        shl eax, 6
+        and eax, BITMASK_32BIT_7TO12_BITS_ON
         or eax, ebx
         ret
 
@@ -125,25 +144,25 @@ read_4byte:
         push r12
         mov ebx, edi
         mov edi, REQUIRED_FLAG
-        shl ebx, 0x12
-        and ebx, 0x1c0000
+        shl ebx, 18
+        and ebx, BITMASK_32BIT_19TO21_BITS_ON
         call readchar
         mov edi, REQUIRED_FLAG
         mov r12d, eax
         call readchar
         mov edi, REQUIRED_FLAG
-        shl r12d, 0xc
+        shl r12d, 12
         mov ebp, eax
-        and r12d, 0x3f000
+        and r12d, BITMASK_32BIT_13TO18_BITS_ON
         call readchar
-        and eax, 0x3f
+        and eax, BITMASK_8BIT_6YOUNGEST_BITS_ON
         or ebx, eax
         or ebx, r12d
         mov r12d, ebp
-        shl r12d, 0x6
-        and r12d, 0xfc0
+        shl r12d, 6
+        and r12d, BITMASK_32BIT_7TO12_BITS_ON
         or r12d, ebx
-        cmp r12d, 0x10ffff
+        cmp r12d, UNICODE_MAX_ENCODABLE
         jg _read4_error
         mov eax, r12d
         pop r12
@@ -158,7 +177,7 @@ _read4_error:
 convert_number:
 ; Check if the string is empty.
         xor ecx, ecx
-        mov cl, byte [rdi]
+        mov cl, [rdi]
         test cl, cl
         jz exit_error
         xor eax, eax
@@ -185,13 +204,11 @@ flush_out_buffer:
         mov r8d, [out_ptr]
         test r8d, r8d
         jz _return_from_flush
-
         mov eax, SYS_WRITE
         mov edi, STDOUT
         mov rsi, out_buffer
         mov edx, [out_ptr]
         syscall
-
         test eax, eax
         jz _exit_write_error
 
@@ -227,64 +244,64 @@ _flush:
 ; Returns the codepoint in eax.
 write_codepoint:
         mov r10d, edi
-        cmp edi, 0xffff
-        ja .L10
-        cmp edi, 0x7ff
-        ja .L11
-        cmp edi, 0x7f
-        jbe .L7
+        cmp edi, MAX_UTF8_POINT_3B
+        ja _write_4bytes
+        cmp edi, MAX_UTF8_POINT_2B
+        ja _write_3bytes
+        cmp edi, MAX_UTF8_POINT_1B
+        jbe _write_1byte
         shr edi, 6
-        or edi, 0xffffffc0
+        or edi, BITMASK_32BIT_OLDEST_26BITS_ON
         movzx edi, dil
-.L8:                                   ; write 2 bytes
+_write_2bytes:
         call writechar
         mov edi, r10d
-        and edi, 0x3f                  ; last 6 bits mask
-        or dil, 0x80                   ; first bit mask
-.L7:
-        jmp writechar                  ; write last char / 1 byte
-.L11:
+        and edi, BITMASK_8BIT_6YOUNGEST_BITS_ON
+        or dil, BITMASK_8BIT_OLDEST_BIT_ON
+_write_1byte:
+        jmp writechar
+_write_3bytes:
         shr edi, 12
-        or edi, 0xffffffe0
+        or edi, BITMASK_32BIT_OLDEST_27BITS_ON
         movzx edi, dil
-.L6:                                   ; write 3 bytes (without calculating)
+_write_3bytes_wo_shift:
         call writechar
         mov edi, r10d
         shr edi, 6
-        and edi, 0x3f
-        or dil, 0x80
-        jmp .L8                        ; write 2 remaining bytes
-.L10:                                  ; write 4 bytes
+        and edi, BITMASK_8BIT_6YOUNGEST_BITS_ON
+        or dil, BITMASK_8BIT_OLDEST_BIT_ON
+        jmp _write_2bytes
+_write_4bytes:
         shr edi, 18
-        or edi, 0xfffffff0
+        or edi, BITMASK_32BIT_OLDEST_28BITS_ON
         movzx edi, dil
         call writechar
         mov edi, r10d
         shr edi, 12
-        and edi, 0x3f
-        or dil, 0x80
-        jmp .L6
+        and edi, BITMASK_8BIT_6YOUNGEST_BITS_ON
+        or dil, BITMASK_8BIT_OLDEST_BIT_ON
+        jmp _write_3bytes_wo_shift
 
 ; Reads and decodes a unicode utf-8 encoded codepoint.
 ; Takes no arguments.
 ; Clobbers registers rdi, rax, rsi, rdx, r8, r10, r11, r12.
 ; Returns the codepoint in eax.
-read_codepoint:  ; TODO magiczne stale
+read_codepoint:
         xor edi, edi
         call readchar
         test al, al
         jns _return_1byte
         mov edx, eax
         movzx edi, al
-        and edx, -32
-        cmp dl, -64
+        and edx, BITMASK_32BIT_OLDEST_27BITS_ON
+        cmp dl, BITMASK_8BIT_OLDEST_2BITS_ON
         je _return_2bytes
         mov edx, eax
-        and edx, -16
-        cmp dl, -32
+        and edx, BITMASK_32BIT_OLDEST_28BITS_ON
+        cmp dl, BITMASK_8BIT_OLDEST_3BITS_ON
         je _return_3bytes
-        and eax, -8
-        cmp al, -16
+        and eax, BITMASK_32BIT_OLDEST_29BITS_ON
+        cmp al, BITMASK_8BIT_OLDEST_4BITS_ON
         je _return_4bytes
         call exit_error
 _return_1byte:
@@ -292,17 +309,17 @@ _return_1byte:
         ret
 _return_2bytes:
         call read_2byte
-        mov edx, 128
+        mov edx, SMALLEST_UTF8_POINT_2B
         jmp _check_validity_and_return
 _return_3bytes:
         call read_3byte
-        mov edx, 2048
+        mov edx, SMALLEST_UTF8_POINT_3B
         jmp _check_validity_and_return
 _return_4bytes:
         call read_4byte
-        mov edx, 65536
+        mov edx, SMALLEST_UTF8_POINT_4B
 _check_validity_and_return:
-        ; edx is equal to the smallest codepoint that can be encoded on n bytes.
+; edx is equal to the smallest codepoint that can be encoded on n bytes.
         cmp eax, edx
         jnb _return_codepoint
         call exit_error
@@ -339,7 +356,7 @@ run_main_read_write_loop:
         mov r13d, esi
 _loop_rw:
         call read_codepoint
-        cmp eax, MAX_ASCII_VALUE
+        cmp eax, MAX_UTF8_POINT_1B
         jbe _write_encoded_codepoint
         mov rdi, r12
         mov esi, r13d
