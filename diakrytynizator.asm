@@ -270,7 +270,6 @@ write_codepoint:
 ; Clobbers registers rdi, rax, rsi, rdx, r8, r10, r11, r12.
 ; Returns the codepoint in eax.
 read_codepoint:
-        sub rsp, 24
         xor edi, edi
         call readchar
         test al, al
@@ -288,33 +287,26 @@ read_codepoint:
         cmp al, -16
         je .L13r
         call exit_error
-        xor eax, eax
-.L1r:
-        add rsp, 24
-        ret
 .L10r:
         movzx eax, al
-        add rsp, 24
-        ret
+        jmp .L1r
 .L11r:
         call read_2byte
         mov edx, 128
-.L5r:
-        cmp eax, edx
-        jnb .L1r
-        mov DWORD [rsp+0xc], eax
-        call exit_error
-        mov eax, DWORD [rsp+0xc]
-        add rsp, 24
-        ret
-.L13r:
-        call read_4byte
-        mov edx, 65536
         jmp .L5r
 .L12r:
         call read_3byte
         mov edx, 2048
         jmp .L5r
+.L13r:
+        call read_4byte
+        mov edx, 65536
+.L5r:
+        cmp eax, edx
+        jnb .L1r
+        call exit_error
+.L1r:
+        ret
 
 ; Calculates the polynomial value at point = codepoint, modulo utf8_max.
 ; Arguments rdi - address of polynomial coefficients, esi - number or polynomial coefficients,
