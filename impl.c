@@ -1,10 +1,6 @@
 void exit_error(void);
 unsigned convert_number(unsigned char *);
 
-unsigned char readchar(unsigned char require);
-unsigned read_2byte(unsigned char first);
-unsigned read_3byte(unsigned char first);
-unsigned read_4byte(unsigned char first);
 void run_main_read_write_loop(unsigned *coeffs, unsigned args);
 /*
 unsigned read_codepoint() {
@@ -36,52 +32,9 @@ unsigned read_codepoint() {
  */
 
 /*
-read_codepoint:
-sub    rsp,0x18
-xor    edi,edi
-call   readchar
-test   al,al
-jns    4014f0 <read_codepoint+0x40>
-mov    edx,eax
-movzx  edi,al
-and    edx,0xffffffe0
-cmp    dl,0xc0
-je     401500 <read_codepoint+0x50>
-mov    edx,eax
-and    edx,0xfffffff0
-cmp    dl,0xe0
-je     401530 <read_codepoint+0x80>
-and    eax,0xfffffff8
-cmp    al,0xf0
-je     401520 <read_codepoint+0x70>
-call   exit_error
-xor    eax,eax
-add    rsp,0x18
-ret
-
-movzx  eax,al
-add    rsp,0x18
-ret
-call   read_2byte
-mov    edx,0x80
-cmp    eax,edx
-jae    4014e4 <read_codepoint+0x34>
-mov    DWORD [rsp+0xc],eax
-call   401421 <exit_error>
-mov    eax,DWORD [rsp+0xc]
-add    rsp,0x18
-ret
-call   read_4byte
-mov    edx,0x10000
-jmp    40150a <read_codepoint+0x5a>
-call   read_3byte
-mov    edx,0x800
-jmp    40150a <read_codepoint+0x5a>
- */
-
 int main(int argc, char *argv[]) {
     unsigned args = argc - 1;
-    if (argc == 0) {
+    if (args == 0) {
         exit_error();
     }
 
@@ -97,6 +50,7 @@ int main(int argc, char *argv[]) {
 
     run_main_read_write_loop(coeffs, args);
 }
+ */
 
 /*
 int main(int argc, char *argv[]) {
@@ -108,3 +62,57 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 */
+
+void main2(int argc, char* argv[]);
+
+/*
+int main(int argc, char *argv[]) {
+
+    main2(argc, argv);
+
+
+    unsigned args = argc - 1;
+    if (args == 0) {
+        exit_error();
+    }
+
+    unsigned coeffs[args - 1];
+
+    unsigned *coeff_ptr = &coeffs[args - 1];
+    for (unsigned i = 1; i <= args; i++) {
+        unsigned a = convert_number((unsigned char *)argv[i]);
+        *coeff_ptr = a;
+        coeff_ptr--;
+        // coeffs[args - i] = a;
+    }
+
+    run_main_read_write_loop(coeffs, args);
+
+
+    return 0;
+}
+
+**/
+
+/*
+int main(int argc, char *argv[]) {
+    //unsigned args = 3;
+    //unsigned coeffs[] = {1075041, 623420, 1};
+
+
+    //char* coeffs[] = {"program", "10", "11", "12", "13", "14"};
+    char* coeffs[] = {"program", "1075041", "623420", "1"};
+    main2(4, coeffs);
+
+    //main2(6, coeffs);
+
+    return 0;
+}
+*/
+
+int main(int argc, char *argv[]) {
+
+    main2(argc, argv);
+
+    return 0;
+}

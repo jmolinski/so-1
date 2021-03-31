@@ -7,20 +7,11 @@
         %define EXIT_CODE_ERROR 1
         %define UTF8_MODULO 0x10FF80
         %define DECIMAL_BASE 10
-        %define BUFFER_SIZE 4001
-        %define BUFFER_MAX_IDX 4000
+        %define BUFFER_SIZE 4096
+        %define BUFFER_MAX_INDEX 4095
 
-        global exit_error
-        global convert_number
-        global readchar
-
-        global read_2byte
-        global read_3byte
-        global read_4byte
-        global run_main_read_write_loop
-        global read_codepoint
-
-        ;extern read_codepoint
+        global  _start
+        global main2
 
         section .bss
         out_ptr resd 1
@@ -73,7 +64,7 @@ _readchar_fill_buffer:
         mov rax, SYS_READ
         mov rdi, STDIN
         mov rsi, in_buffer
-        mov rdx, BUFFER_MAX_IDX
+        mov rdx, BUFFER_MAX_INDEX
         syscall
         mov [in_buff_size], eax
         test eax, eax
@@ -156,54 +147,6 @@ read_4byte:
         ret
 _read4_error:
         call exit_error
-
-
- ;00000000004014d0 <read_codepoint>:
- ;  4014d0:	48 83 ec 18          	sub    rsp,0x18
- ;  4014d4:	31 ff                	xor    edi,edi
- ;  4014d6:	e8 e5 fc ff ff       	call   4011c0 <readchar>
- ;  4014db:	84 c0                	test   al,al
- ;  4014dd:	79 31                	jns    401510 <read_codepoint+0x40>
- ;  4014df:	89 c2                	mov    edx,eax
- ;  4014e1:	0f b6 f8             	movzx  edi,al
- ;  4014e4:	83 e2 e0             	and    edx,0xffffffe0
- ;  4014e7:	80 fa c0             	cmp    dl,0xc0
- ;  4014ea:	74 34                	je     401520 <read_codepoint+0x50>
- ;  4014ec:	89 c2                	mov    edx,eax
- ;  4014ee:	83 e2 f0             	and    edx,0xfffffff0
- ;  4014f1:	80 fa e0             	cmp    dl,0xe0
- ;  4014f4:	74 5a                	je     401550 <read_codepoint+0x80>
- ;  4014f6:	83 e0 f8             	and    eax,0xfffffff8
- ;  4014f9:	3c f0                	cmp    al,0xf0
- ;  4014fb:	74 43                	je     401540 <read_codepoint+0x70>
- ;  4014fd:	e8 b3 fe ff ff       	call   4013b5 <exit_error>
- ;  401502:	31 c0                	xor    eax,eax
- ;  401504:	48 83 c4 18          	add    rsp,0x18
- ;  401508:	c3                   	ret
- ;  401509:	0f 1f 80 00 00 00 00 	nop    DWORD PTR [rax+0x0]
- ;  401510:	0f b6 c0             	movzx  eax,al
- ;  401513:	48 83 c4 18          	add    rsp,0x18
- ;  401517:	c3                   	ret
- ;  401518:	0f 1f 84 00 00 00 00 	nop    DWORD PTR [rax+rax*1+0x0]
- ;  40151f:	00
- ;  401520:	e8 18 fd ff ff       	call   40123d <read_2byte>
- ;  401525:	ba 80 00 00 00       	mov    edx,0x80
- ;  40152a:	39 d0                	cmp    eax,edx
- ;  40152c:	73 d6                	jae    401504 <read_codepoint+0x34>
- ;  40152e:	89 44 24 0c          	mov    DWORD PTR [rsp+0xc],eax
- ;  401532:	e8 7e fe ff ff       	call   4013b5 <exit_error>
- ;  401537:	8b 44 24 0c          	mov    eax,DWORD PTR [rsp+0xc]
- ;  40153b:	48 83 c4 18          	add    rsp,0x18
- ;  40153f:	c3                   	ret
- ;  401540:	e8 0b ff ff ff       	call   401450 <read_4byte>
- ;  401545:	ba 00 00 01 00       	mov    edx,0x10000
- ;  40154a:	eb de                	jmp    40152a <read_codepoint+0x5a>
- ;  40154c:	0f 1f 40 00          	nop    DWORD PTR [rax+0x0]
- ;  401550:	e8 06 fd ff ff       	call   40125b <read_3byte>
- ;  401555:	ba 00 08 00 00       	mov    edx,0x800
- ;  40155a:	eb ce                	jmp    40152a <read_codepoint+0x5a>
- ;  40155c:	0f 1f 40 00          	nop    DWORD PTR [rax+0x0]
-
 
 run_main_read_write_loop:
 ; rdi - ptr na coeffs, esi - args
@@ -409,3 +352,59 @@ read_codepoint:
 	call	read_3byte
 	mov	edx, 2048
 	jmp	.L5r
+
+
+;int main(int argc, char *argv[]) {
+ ;    unsigned args = argc - 1;
+ ;    if (argc == 0) {
+ ;        exit_error();
+ ;    }
+ ;
+ ;    unsigned coeffs[args - 1];
+ ;
+ ;    unsigned *coeff_ptr = &coeffs[args - 1];
+ ;    for (unsigned i = 1; i <= args; i++) {
+ ;        unsigned a = convert_number((unsigned char *)argv[i]);
+ ;        *coeff_ptr = a;
+ ;        coeff_ptr--;
+ ;        // coeffs[args - i] = a;
+ ;    }
+ ;
+ ;    run_main_read_write_loop(coeffs, args);
+ ;}
+
+main2:
+; założenia:
+
+; rdi - 1st arg (argc), rsi - 2nd arg (argv)
+
+	mov	rbp, rsp             ; original stack ptr = rbp
+	sub	rsp, 8    ;
+	mov	r15d, edi            ; r15 = argc
+	sub	r15d, 1             ; r15 = args
+	je	_exit_too_few_args ; args == 0 => goto exit
+	mov	r13, rsi            ; r13 = argv
+	sub	edi, 2              ; argc = argc - 2
+	mov	eax, edi
+	lea	rax, [rax*4]        ; eax = r * (args - 1)
+	sub	rsp, rax            ; alokacja tablicy!!!
+	mov	r14, rsp            ; r14 = stack ptr (coeffs_ptr?)
+	mov [arr_ptr], r14
+	mov	ebx, 1              ; ebx = 1
+	mov	r12d, edi           ; r12d = args - 1
+_convert_and_save_args_loop:
+	mov	eax, ebx
+	mov	rdi, [r13+rax*8]
+	call	convert_number
+	mov	DWORD [r14+r12*4], eax
+	dec r12
+	inc	ebx
+	cmp	r15d, ebx
+	jnb	_convert_and_save_args_loop
+
+	mov	esi, r15d
+	mov	rdi, r14
+	call	run_main_read_write_loop
+_exit_too_few_args:
+	call	exit_error
+
