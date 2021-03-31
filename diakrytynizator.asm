@@ -269,43 +269,44 @@ write_codepoint:
 ; Takes no arguments.
 ; Clobbers registers rdi, rax, rsi, rdx, r8, r10, r11, r12.
 ; Returns the codepoint in eax.
-read_codepoint:
+read_codepoint:  ; TODO magiczne stale
         xor edi, edi
         call readchar
         test al, al
-        jns .L10r
+        jns _return_1byte
         mov edx, eax
         movzx edi, al
         and edx, -32
         cmp dl, -64
-        je .L11r
+        je _return_2bytes
         mov edx, eax
         and edx, -16
         cmp dl, -32
-        je .L12r
+        je _return_3bytes
         and eax, -8
         cmp al, -16
-        je .L13r
+        je _return_4bytes
         call exit_error
-.L10r:
+_return_1byte:
         movzx eax, al
-        jmp .L1r
-.L11r:
+        ret
+_return_2bytes:
         call read_2byte
         mov edx, 128
-        jmp .L5r
-.L12r:
+        jmp _check_validity_and_return
+_return_3bytes:
         call read_3byte
         mov edx, 2048
-        jmp .L5r
-.L13r:
+        jmp _check_validity_and_return
+_return_4bytes:
         call read_4byte
         mov edx, 65536
-.L5r:
+_check_validity_and_return:
+        ; edx is equal to the smallest codepoint that can be encoded on n bytes.
         cmp eax, edx
-        jnb .L1r
+        jnb _return_codepoint
         call exit_error
-.L1r:
+_return_codepoint:
         ret
 
 ; Calculates the polynomial value at point = codepoint, modulo utf8_max.
