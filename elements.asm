@@ -389,7 +389,6 @@ main2:
 	lea	rax, [rax*4]        ; eax = r * (args - 1)
 	sub	rsp, rax            ; alokacja tablicy!!!
 	mov	r14, rsp            ; r14 = stack ptr (coeffs_ptr?)
-	mov [arr_ptr], r14
 	mov	ebx, 1              ; ebx = 1
 	mov	r12d, edi           ; r12d = args - 1
 _convert_and_save_args_loop:
