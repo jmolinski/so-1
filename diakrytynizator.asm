@@ -64,10 +64,10 @@ readchar:
         jmp _readchar_finalize
 _readchar_fill_buffer:
         mov [in_ptr], dword 0
-        mov rax, SYS_READ
-        mov rdi, STDIN
-        mov rsi, in_buffer
-        mov rdx, BUFFER_MAX_INDEX
+        mov eax, SYS_READ
+        mov edi, STDIN
+        mov esi, in_buffer
+        mov edx, BUFFER_MAX_INDEX
         syscall
         mov [in_buff_size], eax
         test eax, eax
@@ -98,10 +98,8 @@ read_2byte:
 
 ; Read and decode 3 byte utf8 codepoint.
 ; Arguments - edi - first byte.
-; Clobbered registers r8, r10, r11, rax, rdi, rsi, rdx
+; Clobbered registers r8, r10, r11, rax, rdi, rsi, rdx, rbp, rbx.
 read_3byte:
-        push rbp
-        push rbx
         mov ebx, edi
         mov edi, REQUIRED_FLAG
         shl ebx, 0xc
@@ -118,17 +116,13 @@ read_3byte:
         shl eax, 0x6
         and eax, 0xfc0
         or eax, ebx
-        pop rbx
-        pop rbp
         ret
 
 ; Read and decode 4 byte utf8 codepoint.
 ; Arguments - edi - first byte.
-; Clobbered registers r8, r10, r11, r12, rax, rdi, rsi, rdx
+; Clobbered registers r8, r10, r11, rax, rdi, rsi, rdx, rbp, rbx.
 read_4byte:
         push r12
-        push rbp
-        push rbx
         mov ebx, edi
         mov edi, REQUIRED_FLAG
         shl ebx, 0x12
@@ -152,8 +146,6 @@ read_4byte:
         cmp r12d, 0x10ffff
         jg _read4_error
         mov eax, r12d
-        pop rbx
-        pop rbp
         pop r12
         ret
 _read4_error:
@@ -165,11 +157,11 @@ _read4_error:
 ; Returns the number in eax.
 convert_number:
 ; Check if the string is empty.
-        xor rcx, rcx
+        xor ecx, ecx
         mov cl, byte [rdi]
         test cl, cl
         jz exit_error
-        xor rax, rax
+        xor eax, eax
         mov r8d, DECIMAL_BASE
 _loop_over_chars:
 ; Check if cl is between '0' and '9' and convert it to a number
@@ -191,16 +183,16 @@ _loop_over_chars:
 ; Clobbers registers r8, rax, rdi, rsi, rdx.
 flush_out_buffer:
         mov r8d, [out_ptr]
-        test r8, r8
+        test r8d, r8d
         jz _return_from_flush
 
-        mov rax, SYS_WRITE
-        mov rdi, STDOUT
+        mov eax, SYS_WRITE
+        mov edi, STDOUT
         mov rsi, out_buffer
         mov edx, [out_ptr]
         syscall
 
-        test rax, rax
+        test eax, eax
         jz _exit_write_error
 
         mov [out_ptr], word 0
@@ -218,9 +210,7 @@ writechar:
         cmp eax, BUFFER_SIZE
         je _flush
 _write_char:
-        mov rdx, out_buffer
-        mov rcx, rdi
-        mov [rdx + rax], cl
+        mov [out_buffer + rax], di
         inc eax
         mov [out_ptr], eax
         ret
@@ -228,7 +218,7 @@ _flush:
         push rdi
         call flush_out_buffer
         pop rdi
-        mov eax, [out_ptr]
+        xor eax, eax
         jmp _write_char
 
 ; Encodes and writes an unicode codepoint
@@ -372,20 +362,20 @@ _write_encoded_codepoint:
 ; Exits through a syscall.
 _start:
         pop rdi                        ; Pop the number or arguments.
-        mov rsi, rsp
+        mov r13, rsp
 
         mov rbp, rsp
         sub rsp, 8
         mov r15d, edi
-        sub r15d, 1
+        dec r15d
         je _exit_too_few_args
-        mov r13, rsi
         sub edi, 2
         mov eax, edi
         lea rax, [rax*4]
         sub rsp, rax
         mov r14, rsp
-        mov ebx, 1
+        xor ebx, ebx
+        inc ebx
         mov r12d, edi
 _convert_and_save_args_loop:
         mov eax, ebx
@@ -407,11 +397,11 @@ _exit_too_few_args:
 ; Take no arguments.
 exit_error:
         call flush_out_buffer
-        mov rdi, EXIT_CODE_ERROR
+        mov edi, EXIT_CODE_ERROR
         jmp _exit
 exit_success:
         call flush_out_buffer
-        mov rdi, EXIT_CODE_SUCCESS
+        mov edi, EXIT_CODE_SUCCESS
 _exit:
-        mov rax, SYS_EXIT
+        mov eax, SYS_EXIT
         syscall
