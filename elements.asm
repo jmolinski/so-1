@@ -10,8 +10,11 @@
         BUFFER_SIZE equ 4096
         BUFFER_MAX_INDEX equ 4095
         REQUIRED_FLAG equ 1
+        SMALLEST_UTF8_POINT_2B equ 0x80
+        MAX_ASCII_VALUE equ 0x7f
 
         global _start
+        global main
         global main2
 
         section .bss
@@ -157,6 +160,10 @@ read_4byte:
 _read4_error:
         call exit_error
 
+; Converts a bytestring to integer modulo utf8_max.
+; Arguments rdi - address of bytestring first byte.
+; Clobbers registers rcx, rax, r8, rdi.
+; Returns the number in eax.
 convert_number:
 ; Check if the string is empty.
         xor rcx, rcx
@@ -219,29 +226,7 @@ _flush:
         mov eax, [out_ptr]
         jmp _write_char
 
-apply_polynomial:
-; rdi - coeffs 64, esi - args 32, edx - codepoint
-; rax - wynik, i = r8d, codepoint = r9d
-        mov r9d, edx
-        sub r9d, 0x80
-        xor rax, rax
-        xor r8, r8
-_coeffs_loop:
-        mul r9
-        mov r10d, [rdi]
-        add rax, r10
-        rax_modulo_utf8 r11
-
-        lea rdi, [rdi+4]
-        inc r8d
-        cmp r8d, esi
-        jne _coeffs_loop
-
-        add eax, 0x80
-        ret
-
 write_codepoint:
-
         mov r10d, edi
         cmp	edi, 0xffff
         ja	.L10
@@ -328,13 +313,37 @@ read_codepoint:
         mov	edx, 2048
         jmp	.L5r
 
+; Calculates the polynomial value at point = codepoint, modulo utf8_max.
+; Arguments rdi - address of polynomial coefficients, esi - number or polynomial coefficients,
+; edx - codepoint.
+; Clobbers registers r9, rax, r8, r10, rdi.
+; Returns the calculated value in eax.
+apply_polynomial:
+        mov r9d, edx
+        sub r9d, SMALLEST_UTF8_POINT_2B
+        xor rax, rax
+        xor r8, r8
+_coeffs_loop:
+        mul r9
+        mov r10d, [rdi]
+        add rax, r10
+        rax_modulo_utf8 r11
+        lea rdi, [rdi+4]
+        inc r8d
+        cmp r8d, esi
+        jne _coeffs_loop
+        add eax, SMALLEST_UTF8_POINT_2B
+        ret
+
+; Runs the main read - decode - apply polynomial - encode - write loop.
+; Arguments rdi - address of polynomial coefficients, esi - number or polynomial coefficients.
+; Never returns (calls exit syscall).
 run_main_read_write_loop:
-; rdi - ptr na coeffs, esi - args
         mov r12, rdi
         mov r13d, esi
 _loop_rw:
         call read_codepoint
-        cmp eax, 0x7f
+        cmp eax, MAX_ASCII_VALUE
         jbe _write_encoded_codepoint
         mov rdi, r12
         mov esi, r13d
@@ -345,22 +354,23 @@ _write_encoded_codepoint:
         call write_codepoint
         jmp _loop_rw
 
-main2:
-; założenia:
-; rdi - 1st arg (argc), rsi - 2nd arg (argv)
-        mov	rbp, rsp                   ; original stack ptr = rbp
+; Main function of the program.
+; Arguments rdi - program arguments count, rsi - address of the first argument
+; Never returns (calls exit syscall).
+main:
+        mov	rbp, rsp
         sub	rsp, 8
-        mov	r15d, edi                  ; r15 = argc
-        sub	r15d, 1                    ; r15 = args
-        je	_exit_too_few_args          ; args == 0 => goto exit
-        mov	r13, rsi                   ; r13 = argv
-        sub	edi, 2                     ; argc = argc - 2
+        mov	r15d, edi
+        sub	r15d, 1
+        je	_exit_too_few_args
+        mov	r13, rsi
+        sub	edi, 2
         mov	eax, edi
-        lea	rax, [rax*4]               ; eax = r * (args - 1)
-        sub	rsp, rax                   ; alokacja tablicy!!!
-        mov	r14, rsp                   ; r14 = stack ptr (coeffs_ptr?)
-        mov	ebx, 1                     ; ebx = 1
-        mov	r12d, edi                  ; r12d = args - 1
+        lea	rax, [rax*4]
+        sub	rsp, rax
+        mov	r14, rsp
+        mov	ebx, 1
+        mov	r12d, edi
 _convert_and_save_args_loop:
         mov	eax, ebx
         mov	rdi, [r13+rax*8]
@@ -376,6 +386,9 @@ _convert_and_save_args_loop:
 _exit_too_few_args:
         call	exit_error
 
+; exit_error and exit_success are 2 possible ways to end the execution.
+; They call exit syscall with 0 or nonzero codes.
+; Take no arguments.
 exit_error:
         call flush_out_buffer
         mov rdi, EXIT_CODE_ERROR

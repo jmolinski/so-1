@@ -1,0 +1,7 @@
+#! /usr/bin/bash
+
+nasm -f elf64 -w+all -w+error -o elements.o elements.asm
+
+gcc -c -Wall -Werror -O2 -o impl.o impl.c  -nostdlib
+gcc -o joined elements.o impl.o -fno-pie -no-pie
+
